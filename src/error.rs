@@ -13,6 +13,8 @@ pub enum Error {
     DistanceTooMuch,
     EndOfBlockNotFound,
     ReadDynamicCodebook,
+    ChecksumMismatch,
+    SizeMismatch
 }
 
 impl From<std::io::Error> for Error {
