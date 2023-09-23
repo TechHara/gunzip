@@ -152,3 +152,21 @@ impl<R: ReadUntil> ReadUntil for &mut R {
         (**self).read_until(byte, buf)
     }
 }
+
+impl<R: BitRead> BitRead for &mut R {
+    fn peek_bits(&mut self) -> std::io::Result<u32> {
+        (**self).peek_bits()
+    }
+
+    fn consume(&mut self, n: u32) {
+        (**self).consume(n)
+    }
+
+    fn byte_align(&mut self) {
+        (**self).byte_align()
+    }
+
+    fn has_data_left(&mut self) -> std::io::Result<bool> {
+        (**self).has_data_left()
+    }
+}

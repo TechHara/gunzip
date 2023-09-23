@@ -6,6 +6,8 @@ pub enum Error {
     StdIoError(ErrorKind),
     EmptyInput,
     InvalidGzHeader,
+    InvalidBlockType,
+    BlockType0LenMismatch
 }
 
 impl From<std::io::Error> for Error {
