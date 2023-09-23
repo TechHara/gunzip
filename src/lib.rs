@@ -5,6 +5,8 @@ pub mod footer;
 pub mod inflate;
 pub mod codebook;
 pub mod huffman_decoder;
+pub mod lz77;
+pub mod sliding_window;
 
 use inflate::Inflate;
 use crate::error::Error;

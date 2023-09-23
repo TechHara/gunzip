@@ -1,16 +1,18 @@
 use crate::bitread::BitRead;
 use crate::error::Result;
 use crate::error::Error;
+use crate::sliding_window::SlidingWindow;
 use std::io::Write;
 
 pub struct Inflate<R: BitRead, W: Write> {
     reader: R,
     writer: W,
+    window: SlidingWindow,
 }
 
 impl<R: BitRead, W: Write> Inflate<R, W> {
     pub fn new(reader: R, writer: W) -> Self {
-        Self { reader, writer }
+        Self { reader, writer, window: SlidingWindow::new() }
     }
 
     pub fn run(mut self) -> Result<()> {
@@ -37,9 +39,10 @@ impl<R: BitRead, W: Write> Inflate<R, W> {
         if len ^ nlen != 0xFFFF {
             Err(Error::BlockType0LenMismatch)
         } else {
-            let mut buf = vec![0; len as usize];
-            self.reader.read_exact(&mut buf)?;
+            let buf = &mut self.window.write_buffer()[..len as usize];
+            self.reader.read_exact(buf)?;
             self.writer.write_all(&buf)?;
+            self.window.slide(len as usize);
             Ok(())
         }
     }

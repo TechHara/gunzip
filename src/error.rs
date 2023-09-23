@@ -10,6 +10,8 @@ pub enum Error {
     BlockType0LenMismatch,
     InvalidCodeLengths,
     HuffmanDecoderCodeNotFound,
+    DistanceTooMuch,
+    EndOfBlockNotFound,
 }
 
 impl From<std::io::Error> for Error {
