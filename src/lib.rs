@@ -3,6 +3,8 @@ pub mod bitread;
 pub mod header;
 pub mod footer;
 pub mod inflate;
+pub mod codebook;
+pub mod huffman_decoder;
 
 use inflate::Inflate;
 use crate::error::Error;

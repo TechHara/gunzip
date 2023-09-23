@@ -7,7 +7,9 @@ pub enum Error {
     EmptyInput,
     InvalidGzHeader,
     InvalidBlockType,
-    BlockType0LenMismatch
+    BlockType0LenMismatch,
+    InvalidCodeLengths,
+    HuffmanDecoderCodeNotFound,
 }
 
 impl From<std::io::Error> for Error {
