@@ -15,6 +15,7 @@ pub trait BitRead: Read {
 
     /// read up to 24-bits and consume
     /// return error if less than n-bits are remaining
+    #[inline(always)]
     fn read_bits(&mut self, n: u32) -> std::io::Result<u32> {
         debug_assert!(n <= 24);
         let bits = self.peek_bits()?;
@@ -91,6 +92,7 @@ impl<R: Read> BitRead for BitReader<R> {
         }
     }
 
+    #[inline(always)]
     fn consume(&mut self, n: u32) {
         debug_assert!(self.bit_len() >= n as usize);
         self.nbits += n;
@@ -98,6 +100,7 @@ impl<R: Read> BitRead for BitReader<R> {
         self.nbits %= 8;
     }
 
+    #[inline(always)]
     fn peek_bits(&mut self) -> std::io::Result<u32> {
         // fill_buf may not return enough bytes at once
         while self.buffer().len() < size_of::<u32>() {
@@ -154,10 +157,12 @@ impl<R: ReadUntil> ReadUntil for &mut R {
 }
 
 impl<R: BitRead> BitRead for &mut R {
+    #[inline(always)]
     fn peek_bits(&mut self) -> std::io::Result<u32> {
         (**self).peek_bits()
     }
 
+    #[inline(always)]
     fn consume(&mut self, n: u32) {
         (**self).consume(n)
     }

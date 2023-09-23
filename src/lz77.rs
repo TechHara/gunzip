@@ -79,6 +79,7 @@ impl<B: BitRead> CodeIterator<B> {
         }
     }
 
+    #[inline(always)]
     fn next_helper(&mut self) -> Result<Code> {
         let bitcode = self.reader.peek_bits()?;
         let (symbol, len) = self.ll_decoder.decode(bitcode)?;
@@ -103,6 +104,7 @@ impl<B: BitRead> CodeIterator<B> {
 impl<B: BitRead> Iterator for CodeIterator<B> {
     type Item = Result<Code>;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.next_helper())
     }

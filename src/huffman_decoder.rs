@@ -88,6 +88,7 @@ impl HuffmanDecoder {
 
     /// Look up the code given at least max_length bits
     /// Returns symbol and its length upon match
+    #[inline(always)]
     pub fn decode(&self, bits: u32) -> Result<(u32, u32)> {
         let (symbol, len) = self.lookup[(bits & self.primary_mask) as usize];
         if len == 0 {
