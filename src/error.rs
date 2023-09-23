@@ -4,6 +4,8 @@ use std::io::ErrorKind;
 #[derive(Debug)]
 pub enum Error {
     StdIoError(ErrorKind),
+    EmptyInput,
+    InvalidGzHeader,
 }
 
 impl From<std::io::Error> for Error {

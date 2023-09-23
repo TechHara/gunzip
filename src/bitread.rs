@@ -117,3 +117,38 @@ impl<R: Read> BitRead for BitReader<R> {
         Ok(!self.buffer().is_empty() || self.fill_buf()? != 0)
     }
 }
+
+pub trait ReadUntil {
+    fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> std::io::Result<usize>;
+}
+
+impl<R: Read> ReadUntil for BitReader<R> {
+    fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+        self.byte_align();
+        let mut n = 0;
+        loop {
+            match self.buffer().iter().position(|x| *x == byte) {
+                Some(pos) => {
+                    buf.extend_from_slice(&self.buffer()[..pos + 1]);
+                    n += pos + 1;
+                    self.begin += pos + 1;
+                    return Ok(n);
+                }
+                None => {
+                    buf.extend_from_slice(self.buffer());
+                    n += self.buffer().len();
+                    self.begin = self.cap;
+                    if self.fill_buf()? == 0 {
+                        return Ok(n);
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<R: ReadUntil> ReadUntil for &mut R {
+    fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+        (**self).read_until(byte, buf)
+    }
+}
