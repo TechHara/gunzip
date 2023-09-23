@@ -12,6 +12,7 @@ pub enum Error {
     HuffmanDecoderCodeNotFound,
     DistanceTooMuch,
     EndOfBlockNotFound,
+    ReadDynamicCodebook,
 }
 
 impl From<std::io::Error> for Error {
