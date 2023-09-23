@@ -1,4 +1,5 @@
 pub mod error;
+pub mod bitread;
 
 use crate::error::Result;
 use std::io::{Read, Write};
