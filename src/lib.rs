@@ -2,17 +2,15 @@ pub mod error;
 pub mod bitread;
 pub mod header;
 pub mod footer;
-pub mod inflate;
 pub mod codebook;
 pub mod huffman_decoder;
 pub mod lz77;
 pub mod sliding_window;
 pub mod checksum_write;
+pub mod producer;
 
-use inflate::Inflate;
-use crate::error::Error;
+use crate::{error::Error, producer::Producer};
 
-use bitread::{BitReader, BitRead};
 use header::Header;
 use footer::Footer;
 
@@ -21,36 +19,56 @@ use std::io::{Read, Write};
 
 use checksum_write::{ChecksumWrite, Crc32Writer};
 
-pub fn gunzip(read: impl Read, write: impl Write) -> Result<()> {
-    let mut reader = BitReader::new(read);
-    let mut writer = Crc32Writer::new(write);
-    let mut member_idx = 0;
+pub enum Produce {
+    Header(Header),
+    Footer(Footer),
+    Data(Vec<u8>),
+    Err(Error),
+}
 
-    while reader.has_data_left()? {
-        Header::read(&mut reader)?;
-        member_idx += 1;
+pub fn gunzip(read: impl Read + Send + 'static, write: impl Write, multithread: bool) -> Result<()> {
+    // producer: takes Read and produces data block
+    // consumer: takes Write and consumes data block
 
-        // read one or more blocks
-        Inflate::new(&mut reader, &mut writer).run()?;
+    let iter = if multithread {
+        let (tx, rx) = std::sync::mpsc::channel::<Produce>();
+        std::thread::spawn(move || {
+            for produce in Producer::new(read) {
+                tx.send(produce).expect("error while transmitting produce over the channel");
+            }
+        });
 
-        let footer = Footer::read(&mut reader)?;
-        let checksum = writer.checksum();
-        let size = writer.len();
-
-        if footer.crc32 != checksum {
-            return Err(Error::ChecksumMismatch);
-        }
-
-        if footer.size as usize != size & 0xFFFFFFFF {
-            return Err(Error::SizeMismatch);
-        }
-
-        writer.reset_len();
-    }
-
-    if member_idx == 0 {
-        Err(Error::EmptyInput)
+        Box::new(rx.into_iter()) as Box<dyn Iterator<Item = Produce>>
     } else {
-        Ok(())
+        Box::new(Producer::new(read))
+    };
+    
+    let mut writer = Crc32Writer::new(write);
+    
+    for xs in iter {
+        match xs {
+            Produce::Header(_) => (),
+            Produce::Footer(footer) => {
+                let checksum = writer.checksum();
+                let size = writer.len();
+        
+                if footer.crc32 != checksum {
+                    return Err(Error::ChecksumMismatch);
+                }
+        
+                if footer.size as usize != size & 0xFFFFFFFF {
+                    return Err(Error::SizeMismatch);
+                }
+
+                writer.reset_len();
+            }
+            Produce::Data(xs) => {
+                writer.write_all(&xs)?;
+            }
+            Produce::Err(e) => {
+                return Err(e);
+            }
+        }
     }
+    Ok(())
 }
