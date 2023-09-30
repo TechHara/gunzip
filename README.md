@@ -1,4 +1,4 @@
-This repo contains a pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 10 to understand the code in incremental steps. The current `main` branch is identical to branch 10.
+This repo contains a pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 11 to understand the code in incremental steps. The current `main` branch is identical to branch 11.
 
 The following roughly summarizes each stage
 - branch 1: `main()` function and skeletal structure
@@ -11,6 +11,7 @@ The following roughly summarizes each stage
 - branch 8: `checksum_write` module for verifying the decompressed data
 - branch 9: performance optimization
 - branch 10: multithread support
+- branch 11: streaming support
 
 # Benchmark
 ![](benchmark_x64.svg)
