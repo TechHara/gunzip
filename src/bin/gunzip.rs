@@ -1,5 +1,5 @@
 use gunzip::error::Result;
-use gunzip::gunzip;
+use gunzip::Decompressor;
 
 fn usage(program: &str) {
     eprintln!("Usage: {} [-t]", program);
@@ -24,6 +24,9 @@ fn main() -> Result<()> {
     };
 
     let reader = std::io::stdin();
-    let writer = std::io::stdout();
-    gunzip(reader, writer, multithread)
+    let mut writer = std::io::stdout();
+
+    let mut decompressor = Decompressor::new(reader, multithread);
+    std::io::copy(&mut decompressor, &mut writer)?;
+    Ok(())
 }
