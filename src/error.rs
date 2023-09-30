@@ -23,6 +23,15 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<Error> for std::io::Error {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::StdIoError(e) => Self::from(e),
+            e => Self::new(std::io::ErrorKind::Other, e),
+        }
+    }
+}
+
 impl std::error::Error for Error {}
 
 impl Display for Error {
