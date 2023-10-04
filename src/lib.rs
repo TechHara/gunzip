@@ -76,7 +76,7 @@ impl Decompressor {
                         return Err(Error::ChecksumMismatch.into());
                     }
 
-                    if self.checksum.len() != footer.size as usize {
+                    if self.checksum.len() & 0xFFFFFFFF != footer.size as usize {
                         return Err(Error::SizeMismatch.into());
                     }
 
