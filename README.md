@@ -13,6 +13,9 @@ The following roughly summarizes each stage
 - branch 10: multithread support
 - branch 11: streaming support
 
+# Tutorials
+- [Medium](https://medium.com/@techhara/rust-write-gunzip-from-scratch-1-a0100648b246)
+
 # Benchmark
 ![](benchmark_x64.svg)
 ![](benchmark_arm64.svg)
@@ -37,3 +40,6 @@ You are welcome to contribute by submitting a PR for bug fixes or enhancements.
 
 # Ports
 You can also contribute by porting this code to a different language so that more people can learn from it.
+
+### Go
+- [go_gunzip](https://github.com/TechHara/go_gunzip)
