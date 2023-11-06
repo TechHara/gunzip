@@ -1,5 +1,5 @@
-use crate::error::{Result, Error};
 use crate::bitread::BitRead;
+use crate::error::{Error, Result};
 use crate::huffman_decoder::HuffmanDecoder;
 use std::cmp::Ordering::*;
 
@@ -9,8 +9,8 @@ pub const MAX_LENGTH: u16 = 258;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Code {
-    Literal(u8), // < 256
-    EndOfBlock, // == 256
+    Literal(u8),                               // < 256
+    EndOfBlock,                                // == 256
     Dictionary { distance: u16, length: u16 }, // 257..285
 }
 
@@ -20,17 +20,21 @@ pub enum DecodeResult {
     Error(Error),
 }
 
-pub fn decode(
+pub fn decode<B: BitRead>(
     window: &mut [u8],
     boundary: usize,
-    codes: &mut impl Iterator<Item = Result<Code>>,
+    reader: &mut B,
+    ll_decoder: &HuffmanDecoder,
+    dist_decoder: &HuffmanDecoder,
 ) -> Result<DecodeResult> {
     let mut idx = boundary; // position to write to
     if idx + MAX_LENGTH as usize >= window.len() {
         return Ok(DecodeResult::WindowIsFull(idx - boundary));
     }
-    for code in codes {
-        match code? {
+
+    loop {
+        let code = read_next_code(reader, ll_decoder, dist_decoder)?;
+        match code {
             Code::Literal(x) => {
                 window[idx] = x;
                 idx += 1;
@@ -61,52 +65,33 @@ pub fn decode(
             return Ok(DecodeResult::WindowIsFull(idx - boundary));
         }
     }
-    Err(Error::EndOfBlockNotFound)
 }
 
-pub struct CodeIterator<B: BitRead> {
-    reader: B,
-    ll_decoder: HuffmanDecoder,
-    dist_decoder: HuffmanDecoder,
-}
-
-impl<B: BitRead> CodeIterator<B> {
-    pub fn new(reader: B, ll_decoder: HuffmanDecoder, dist_decoder: HuffmanDecoder) -> Self {
-        Self {
-            reader,
-            ll_decoder,
-            dist_decoder,
+#[inline(always)]
+fn read_next_code<B: BitRead>(
+    reader: &mut B,
+    ll_decoder: &HuffmanDecoder,
+    dist_decoder: &HuffmanDecoder,
+) -> Result<Code> {
+    let bitcode = reader.peek_bits()?;
+    let (symbol, len) = ll_decoder.decode(bitcode)?;
+    reader.consume(len);
+    match symbol.cmp(&END_OF_BLOCK) {
+        Less => Ok(Code::Literal(symbol as u8)),
+        Equal => Ok(Code::EndOfBlock),
+        Greater => {
+            let (bits, mut length) = SYMBOL2BITS_LENGTH[(symbol & 0xFF) as usize];
+            length += reader.read_bits(bits)?;
+            let bitcode = reader.peek_bits()?;
+            let (symbol, len) = dist_decoder.decode(bitcode)?;
+            reader.consume(len);
+            let (bits, mut distance) = SYMBOL2BITS_DISTANCE[symbol as usize];
+            distance += reader.read_bits(bits)?;
+            Ok(Code::Dictionary {
+                distance: distance as u16,
+                length: length as u16,
+            })
         }
-    }
-
-    #[inline(always)]
-    fn next_helper(&mut self) -> Result<Code> {
-        let bitcode = self.reader.peek_bits()?;
-        let (symbol, len) = self.ll_decoder.decode(bitcode)?;
-        self.reader.consume(len);
-        match symbol.cmp(&END_OF_BLOCK) {
-            Less => Ok(Code::Literal(symbol as u8)),
-            Equal => Ok(Code::EndOfBlock),
-            Greater => {
-                let (bits, mut length) = SYMBOL2BITS_LENGTH[(symbol & 0xFF) as usize];
-                length += self.reader.read_bits(bits)?;
-                let bitcode = self.reader.peek_bits()?;
-                let (symbol, len) = self.dist_decoder.decode(bitcode)?;
-                self.reader.consume(len);
-                let (bits, mut distance) = SYMBOL2BITS_DISTANCE[symbol as usize];
-                distance += self.reader.read_bits(bits)?;
-                Ok(Code::Dictionary { distance: distance as u16, length: length as u16 })
-            }
-        }
-    }
-}
-
-impl<B: BitRead> Iterator for CodeIterator<B> {
-    type Item = Result<Code>;
-
-    #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_helper())
     }
 }
 

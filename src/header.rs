@@ -1,5 +1,5 @@
 use crate::bitread::ReadUntil;
-use crate::error::{Result, Error};
+use crate::error::{Error, Result};
 use std::io::Read;
 
 const ID1: u8 = 0x1f;

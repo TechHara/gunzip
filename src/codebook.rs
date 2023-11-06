@@ -22,7 +22,7 @@ impl CodeBook {
 
         // step 1
         // # of codes having bitcode length count
-        let mut bl_count = [0 as u32; MAX_CODELENGTH as usize + 1];
+        let mut bl_count = [0; MAX_CODELENGTH as usize + 1];
         for l in lengths {
             bl_count[*l as usize] += 1;
             tree.push((0, *l));
@@ -34,7 +34,7 @@ impl CodeBook {
         }
 
         // step 2
-        let mut next_code = [0 as u32; MAX_CODELENGTH as usize + 1];
+        let mut next_code = [0; MAX_CODELENGTH as usize + 1];
         let mut code = 0;
         bl_count[0] = 0; // this is a must!!
         for bits in 1..=max_len as usize {

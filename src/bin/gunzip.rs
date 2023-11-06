@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     };
 
     let reader = std::io::stdin();
-    let mut writer = std::io::stdout();
+    let mut writer = std::io::stdout().lock();
 
     let mut decompressor = Decompressor::new(reader, multithread);
     std::io::copy(&mut decompressor, &mut writer)?;
