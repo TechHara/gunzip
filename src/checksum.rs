@@ -21,7 +21,10 @@ pub struct Crc32Checksum {
 
 impl Crc32Checksum {
     pub fn new() -> Self {
-        Self { hasher: Hasher::new(), n: 0 }
+        Self {
+            hasher: Hasher::new(),
+            n: 0,
+        }
     }
 }
 

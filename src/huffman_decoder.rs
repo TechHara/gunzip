@@ -7,8 +7,8 @@ fn reverse_bits(mut bits: u32) -> u32 {
     bits
 }
 
-use crate::error::{Error, Result};
 use crate::codebook::CodeBook;
+use crate::error::{Error, Result};
 
 const NUM_BITS_FIRST_LOOKUP: u32 = 9;
 
@@ -16,11 +16,19 @@ pub struct HuffmanDecoder {
     /// lookup[bitcode] where bitcode is the bit-order reversed huffman code, right-aligned
     /// this is so that we can feed in multiple bits at once, from right to left
     lookup: Vec<(u32, u32)>, // symbol, length
-    primary_mask: u32, // mask NUM_BITS_FIRST_LOOKUP bits
+    primary_mask: u32,   // mask NUM_BITS_FIRST_LOOKUP bits
     secondary_mask: u32, // mask the rest of the bits
 }
 
 impl HuffmanDecoder {
+    pub fn uninitialized() -> Self {
+        Self {
+            lookup: Vec::new(),
+            primary_mask: 0,
+            secondary_mask: 0,
+        }
+    }
+
     pub fn new(codebook: CodeBook) -> Self {
         let mut lookup = Vec::new();
         let max_nbits = codebook.max_length();
@@ -82,7 +90,7 @@ impl HuffmanDecoder {
         Self {
             lookup,
             primary_mask,
-            secondary_mask
+            secondary_mask,
         }
     }
 

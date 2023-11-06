@@ -12,17 +12,9 @@ pub mod sliding_window;
 use crate::{checksum::Checksum, error::Error, producer::Producer};
 
 use checksum::Crc32Checksum;
-use footer::Footer;
-use header::Header;
+use producer::Produce;
 
 use std::io::Read;
-
-pub enum Produce {
-    Header(Header),
-    Footer(Footer),
-    Data(Vec<u8>),
-    Err(Error),
-}
 
 pub struct Decompressor {
     iter: Box<dyn Iterator<Item = Produce>>,

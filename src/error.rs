@@ -14,7 +14,7 @@ pub enum Error {
     EndOfBlockNotFound,
     ReadDynamicCodebook,
     ChecksumMismatch,
-    SizeMismatch
+    SizeMismatch,
 }
 
 impl From<std::io::Error> for Error {

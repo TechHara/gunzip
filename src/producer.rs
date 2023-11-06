@@ -4,15 +4,22 @@ use crate::error::{Error, Result};
 use crate::footer::Footer;
 use crate::header::Header;
 use crate::huffman_decoder::HuffmanDecoder;
-use crate::lz77::{decode, CodeIterator, DecodeResult};
+use crate::lz77::{decode, DecodeResult};
 use crate::sliding_window::SlidingWindow;
-use crate::Produce;
 use std::io::Read;
 
 enum State {
     Header,
     Block,
+    Inflate(bool),
     Footer,
+}
+
+pub enum Produce {
+    Header(Header),
+    Footer(Footer),
+    Data(Vec<u8>),
+    Err(Error),
 }
 
 pub struct Producer<R: Read> {
@@ -20,6 +27,8 @@ pub struct Producer<R: Read> {
     state: State,
     member_idx: usize,
     window: SlidingWindow,
+    ll_decoder: HuffmanDecoder,
+    dist_decoder: HuffmanDecoder,
 }
 
 impl<R: Read> Producer<R> {
@@ -29,6 +38,8 @@ impl<R: Read> Producer<R> {
             state: State::Header,
             member_idx: 0,
             window: SlidingWindow::new(),
+            ll_decoder: HuffmanDecoder::uninitialized(),
+            dist_decoder: HuffmanDecoder::uninitialized(),
         }
     }
 
@@ -48,17 +59,29 @@ impl<R: Read> Producer<R> {
             }
             State::Block => {
                 let header = self.reader.read_bits(3)?;
-                if header & 1 == 1 {
-                    self.state = State::Footer;
-                }
-
+                let is_final = header & 1 == 1;
                 match header & 0b110 {
-                    0b000 => self.inflate_block0()?,
-                    0b010 => self.inflate_block1()?,
-                    0b100 => self.inflate_block2()?,
+                    0b000 => {
+                        if is_final {
+                            self.state = State::Footer;
+                        }
+                        self.inflate_block0()?
+                    }
+                    0b010 => {
+                        self.ll_decoder = HuffmanDecoder::new(CodeBook::default_ll());
+                        self.dist_decoder = HuffmanDecoder::new(CodeBook::default_dist());
+                        self.state = State::Inflate(is_final);
+                        self.inflate(is_final)?
+                    }
+                    0b100 => {
+                        (self.ll_decoder, self.dist_decoder) = self.read_dynamic_codebooks()?;
+                        self.state = State::Inflate(is_final);
+                        self.inflate(is_final)?
+                    }
                     _ => return Err(Error::InvalidBlockType),
                 }
             }
+            State::Inflate(is_final) => self.inflate(is_final)?,
             State::Footer => {
                 self.state = State::Header;
                 Produce::Footer(Footer::read(&mut self.reader)?)
@@ -82,45 +105,31 @@ impl<R: Read> Producer<R> {
         }
     }
 
-    fn inflate_block1(&mut self) -> Result<Produce> {
-        let ll_decoder = HuffmanDecoder::new(CodeBook::default_ll());
-        let dist_decoder = HuffmanDecoder::new(CodeBook::default_dist());
-        self.inflate(ll_decoder, dist_decoder)
-    }
-
-    fn inflate_block2(&mut self) -> Result<Produce> {
-        let (ll_decoder, dist_decoder) = self.read_dynamic_codebooks()?;
-        self.inflate(ll_decoder, dist_decoder)
-    }
-
-    fn inflate(
-        &mut self,
-        ll_decoder: HuffmanDecoder,
-        dist_decoder: HuffmanDecoder,
-    ) -> Result<Produce> {
-        let mut iter = CodeIterator::new(&mut self.reader, ll_decoder, dist_decoder);
-
-        let mut done = false;
-        let mut buf = Vec::new();
-        loop {
-            let boundary = self.window.boundary();
-            let n = match decode(self.window.buffer(), boundary, &mut iter)? {
-                DecodeResult::Done(n) => {
-                    done = true;
-                    n
-                }
-                DecodeResult::WindowIsFull(n) => n,
-                DecodeResult::Error(e) => {
-                    return Err(e);
-                }
-            };
-            buf.extend_from_slice(&self.window.write_buffer()[..n]);
-
-            self.window.slide(n);
-            if done {
-                break;
+    fn inflate(&mut self, is_final: bool) -> Result<Produce> {
+        let boundary = self.window.boundary();
+        let n = match decode(
+            self.window.buffer(),
+            boundary,
+            &mut self.reader,
+            &self.ll_decoder,
+            &self.dist_decoder,
+        )? {
+            DecodeResult::Done(n) => {
+                self.state = if is_final {
+                    State::Footer
+                } else {
+                    State::Block
+                };
+                n
             }
-        }
+            DecodeResult::WindowIsFull(n) => n,
+            DecodeResult::Error(e) => {
+                return Err(e);
+            }
+        };
+        let buf = Vec::from(&self.window.write_buffer()[..n]);
+        self.window.slide(n);
+
         Ok(Produce::Data(buf))
     }
 
@@ -128,14 +137,14 @@ impl<R: Read> Producer<R> {
         let hlit = self.reader.read_bits(5)? as usize + 257;
         let hdist = self.reader.read_bits(5)? as usize + 1;
         let hclen = self.reader.read_bits(4)? as usize + 4;
-        let mut cl_lengths = [0 as u32; 19];
+        let mut cl_lengths = [0; 19];
         for idx in [
             16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
         ]
         .into_iter()
         .take(hclen)
         {
-            cl_lengths[idx] = self.reader.read_bits(3)? as u32;
+            cl_lengths[idx] = self.reader.read_bits(3)?;
         }
         let cl_codes = CodeBook::new(&cl_lengths)?;
         let cl_decoder = HuffmanDecoder::new(cl_codes);
@@ -150,7 +159,7 @@ impl<R: Read> Producer<R> {
             self.reader.consume(len);
             match cl_code {
                 0..=15 => {
-                    lengths.push(cl_code as u32);
+                    lengths.push(cl_code);
                 }
                 16 if !lengths.is_empty() => {
                     let length = 3 + self.reader.read_bits(2)? as usize;

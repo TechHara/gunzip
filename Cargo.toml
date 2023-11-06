@@ -10,3 +10,6 @@ crc32fast = "1.3"
 
 [profile.release]
 debug = true
+debug-assertions = false
+lto = true
+codegen-units = 1
