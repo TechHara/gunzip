@@ -27,6 +27,11 @@ fn main() -> Result<()> {
     let mut writer = std::io::stdout().lock();
 
     let mut decompressor = Decompressor::new(reader, multithread);
-    std::io::copy(&mut decompressor, &mut writer)?;
-    Ok(())
+    match std::io::copy(&mut decompressor, &mut writer) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            std::process::exit(-1);
+        }
+    }
 }

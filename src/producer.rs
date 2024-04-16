@@ -84,6 +84,7 @@ impl<R: Read> Producer<R> {
             State::Inflate(is_final) => self.inflate(is_final)?,
             State::Footer => {
                 self.state = State::Header;
+                self.window = SlidingWindow::new(); // reset history
                 Produce::Footer(Footer::read(&mut self.reader)?)
             }
         };
