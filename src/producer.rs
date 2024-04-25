@@ -4,7 +4,7 @@ use crate::error::{Error, Result};
 use crate::footer::Footer;
 use crate::header::Header;
 use crate::huffman_decoder::HuffmanDecoder;
-use crate::lz77::{decode, DecodeResult};
+use crate::lz77::{decode, DecodeResult, MAX_DISTANCE};
 use crate::sliding_window::SlidingWindow;
 use std::io::Read;
 
@@ -98,10 +98,12 @@ impl<R: Read> Producer<R> {
         if len ^ nlen != 0xFFFF {
             Err(Error::BlockType0LenMismatch)
         } else {
-            let mut buf = vec![0; len as usize];
+            let len = len as usize;
+            let mut buf = vec![0; len];
             self.reader.read_exact(&mut buf)?;
-            self.window.write_buffer()[..len as usize].copy_from_slice(&buf);
-            self.window.slide(len as usize);
+            let n = len.min(MAX_DISTANCE as usize); // maximum history required
+            self.window.write_buffer()[..n].copy_from_slice(&buf[len - n..len]);
+            self.window.slide(n);
             Ok(Produce::Data(buf))
         }
     }

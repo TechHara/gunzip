@@ -1,4 +1,4 @@
-This repo contains a pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 13 to understand the code in incremental steps. The current `main` branch is identical to branch 13.
+This repo contains a pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 13 to understand the code in incremental steps. The current `main` branch is identical to branch 14.
 
 The following roughly summarizes each stage
 - branch 1: `main()` function and skeletal structure
@@ -14,6 +14,7 @@ The following roughly summarizes each stage
 - branch 11: streaming support
 - branch 12: memory optimization
 - branch 13: bug fix to reject non-compliant `.gz` file
+- branch 14: minor optimization for block type 0
 
 # Tutorials
 - [Medium](https://medium.com/@techhara/rust-write-gunzip-from-scratch-1-a0100648b246)
