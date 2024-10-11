@@ -86,10 +86,9 @@ impl<R: Read> Read for BitReader<R> {
 
 impl<R: Read> BitRead for BitReader<R> {
     fn byte_align(&mut self) {
-        if self.nbits > 0 {
-            self.nbits = 0;
-            self.begin += 1;
-        }
+        let delta = (self.nbits + 7) / 8;
+        self.nbits = 0;
+        self.begin += delta as usize;
     }
 
     #[inline(always)]
