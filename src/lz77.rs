@@ -33,13 +33,26 @@ pub fn decode<B: BitRead>(
     }
 
     loop {
-        let code = read_next_code(reader, ll_decoder, dist_decoder)?;
-        match code {
-            Code::Literal(x) => {
-                window[idx] = x;
+        let bitcode = reader.peek_bits()?;
+        let (symbol, len) = ll_decoder.decode(bitcode)?;
+        reader.consume(len);
+        match symbol.cmp(&END_OF_BLOCK) {
+            Less => {
+                window[idx] = symbol as u8;
                 idx += 1;
             }
-            Code::Dictionary { distance, length } => {
+            Equal => {
+                return Ok(DecodeResult::Done(idx - boundary));
+            }
+            Greater => {
+                let (bits, mut length) = SYMBOL2BITS_LENGTH[(symbol & 0xFF) as usize];
+                length += reader.read_bits(bits)?;
+                let bitcode = reader.peek_bits()?;
+                let (symbol, len) = dist_decoder.decode(bitcode)?;
+                reader.consume(len);
+                let (bits, mut distance) = SYMBOL2BITS_DISTANCE[symbol as usize];
+                distance += reader.read_bits(bits)?;
+
                 let mut distance = distance as usize;
                 let mut length = length as usize;
 
@@ -56,41 +69,10 @@ pub fn decode<B: BitRead>(
                     distance += n;
                 }
             }
-            Code::EndOfBlock => {
-                return Ok(DecodeResult::Done(idx - boundary));
-            }
         }
 
         if idx + MAX_LENGTH as usize >= window.len() {
             return Ok(DecodeResult::WindowIsFull(idx - boundary));
-        }
-    }
-}
-
-#[inline(always)]
-fn read_next_code<B: BitRead>(
-    reader: &mut B,
-    ll_decoder: &HuffmanDecoder,
-    dist_decoder: &HuffmanDecoder,
-) -> Result<Code> {
-    let bitcode = reader.peek_bits()?;
-    let (symbol, len) = ll_decoder.decode(bitcode)?;
-    reader.consume(len);
-    match symbol.cmp(&END_OF_BLOCK) {
-        Less => Ok(Code::Literal(symbol as u8)),
-        Equal => Ok(Code::EndOfBlock),
-        Greater => {
-            let (bits, mut length) = SYMBOL2BITS_LENGTH[(symbol & 0xFF) as usize];
-            length += reader.read_bits(bits)?;
-            let bitcode = reader.peek_bits()?;
-            let (symbol, len) = dist_decoder.decode(bitcode)?;
-            reader.consume(len);
-            let (bits, mut distance) = SYMBOL2BITS_DISTANCE[symbol as usize];
-            distance += reader.read_bits(bits)?;
-            Ok(Code::Dictionary {
-                distance: distance as u16,
-                length: length as u16,
-            })
         }
     }
 }
