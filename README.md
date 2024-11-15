@@ -1,6 +1,6 @@
 # Gunzip
 
-This repo contains pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 15 to understand the code in incremental steps. The current `main` branch is identical to branch 15.
+This repo contains pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 16 to understand the code in incremental steps. The current `main` branch is identical to branch 16.
 
 The following roughly summarizes each stage
 - branch 1: `main()` function and skeletal structure
@@ -18,6 +18,7 @@ The following roughly summarizes each stage
 - branch 13: bug fix to reject non-compliant `.gz` file
 - branch 14: minor optimization for block type 0
 - branch 15: performance optimization
+- branch 16: performance optimization by replacing dynamic dispatch with static dispatch
 
 # Features
 - written from scratch in pure Rust without unsafe code
@@ -25,20 +26,23 @@ The following roughly summarizes each stage
 - supports multithreading (two threads)
 - competitive in performance with other popular implementations (see [Benchmark](#benchmark) below)
 
-# Library
+# Usage
+## Library
 ```rust
-use gunzip::Decompressor;
+use gunzip::{SingleThreadDecompressor, MultiThreadDecompressor};
 
 fn main() -> std::io::Result<()> {
     let reader = std::io::stdin();
     let mut writer = std::io::stdout();
-    let use_multithread = true;
-    let mut decompressor = Decompressor::new(reader, use_multithread);
+    let mut decompressor = SingleThreadDecompressor::new(reader);
+    // or MultiThreadDecompressor::new(reader);
     std::io::copy(&mut decompressor, &mut writer)?;
     Ok(())
 }
 ```
-# Executable
+See [gunzip.rs](src/bin/gunzip.rs) as an example.
+
+## Executable
 ```sh
 # Usage: target/release/gunzip [-t]
 # 	Decompresses .gz file read from stdin and outputs to stdout

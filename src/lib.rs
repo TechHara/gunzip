@@ -9,36 +9,71 @@ pub mod lz77;
 pub mod producer;
 pub mod sliding_window;
 
-use crate::{checksum::Checksum, error::Error, producer::Producer};
+use crate::{checksum::Checksum, error::Error};
 
 use checksum::Crc32Checksum;
-use producer::Produce;
+use producer::{Produce, Producer};
 
 use std::io::Read;
 
-pub struct Decompressor {
-    iter: Box<dyn Iterator<Item = Produce>>,
+pub struct SingleThreadDecompressor<R> {
+    inner: Decompressor<Producer<R>>,
+}
+
+impl<R: Read> SingleThreadDecompressor<R> {
+    pub fn new(read: R) -> Self {
+        Self {
+            inner: Decompressor::new(Producer::new(read)),
+        }
+    }
+}
+
+impl<R: Read> Read for SingleThreadDecompressor<R> {
+    #[inline(always)]
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+pub struct MultithreadDecompressor {
+    inner: Decompressor<std::sync::mpsc::IntoIter<Produce>>,
+}
+
+impl MultithreadDecompressor {
+    pub fn new<R: Read + Send + 'static>(read: R) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            for produce in Producer::new(read) {
+                tx.send(produce)
+                    .expect("error while transmitting produce over the channel");
+            }
+        });
+
+        Self {
+            inner: Decompressor::new(rx.into_iter()),
+        }
+    }
+}
+
+impl Read for MultithreadDecompressor {
+    #[inline(always)]
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+struct Decompressor<I> {
+    iter: I,
     buf: Vec<u8>,
     begin: usize,
     checksum: Crc32Checksum,
 }
 
-impl Decompressor {
-    pub fn new<R: Read + Send + 'static>(read: R, multithread: bool) -> Self {
-        let iter = if multithread {
-            let (tx, rx) = std::sync::mpsc::channel::<Produce>();
-            std::thread::spawn(move || {
-                for produce in Producer::new(read) {
-                    tx.send(produce)
-                        .expect("error while transmitting produce over the channel");
-                }
-            });
-
-            Box::new(rx.into_iter()) as Box<dyn Iterator<Item = Produce>>
-        } else {
-            Box::new(Producer::new(read))
-        };
-
+impl<I> Decompressor<I>
+where
+    I: Iterator<Item = Produce>,
+{
+    fn new(iter: I) -> Self {
         Self {
             iter,
             buf: vec![],
@@ -80,7 +115,10 @@ impl Decompressor {
     }
 }
 
-impl Read for Decompressor {
+impl<I> Read for Decompressor<I>
+where
+    I: Iterator<Item = Produce>,
+{
     fn read(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
         let mut nbytes = 0;
         loop {

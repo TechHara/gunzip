@@ -22,7 +22,7 @@ pub enum Produce {
     Err(Error),
 }
 
-pub struct Producer<R: Read> {
+pub struct Producer<R> {
     reader: BitReader<R>,
     state: State,
     member_idx: usize,

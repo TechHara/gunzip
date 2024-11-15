@@ -30,7 +30,7 @@ pub trait BitRead: Read {
 
 const BUFFER_SIZE: usize = 16 << 10;
 
-pub struct BitReader<R: Read> {
+pub struct BitReader<R> {
     read: R,
     nbits: u32, // # consumed bits within the first byte
     buf: Vec<u8>,
