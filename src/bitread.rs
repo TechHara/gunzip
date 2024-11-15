@@ -53,9 +53,13 @@ impl<R: Read> BitReader<R> {
         &self.buf[self.begin..self.cap]
     }
 
+    fn buffer_len(&self) -> usize {
+        self.cap - self.begin
+    }
+
     /// # bits remaining within the buffer
     fn bit_len(&self) -> usize {
-        self.buffer().len() * 8 - self.nbits as usize
+        self.buffer_len() * 8 - self.nbits as usize
     }
 
     /// refill buffer
@@ -74,8 +78,8 @@ impl<R: Read> Read for BitReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.byte_align();
         // read off from the buffer first
-        let mut n = buf.len().min(self.buffer().len());
-        buf[..n].copy_from_slice(&self.buffer()[..n]);
+        let mut n = buf.len().min(self.buffer_len());
+        buf[..n].copy_from_slice(&self.buf[self.begin..self.begin + n]);
         self.begin += n;
 
         // read the rest directly from Read
@@ -102,7 +106,7 @@ impl<R: Read> BitRead for BitReader<R> {
     #[inline(always)]
     fn peek_bits(&mut self) -> std::io::Result<u32> {
         // fill_buf may not return enough bytes at once
-        while self.buffer().len() < size_of::<u32>() {
+        while self.buffer_len() < size_of::<u32>() {
             if self.fill_buf()? == 0 {
                 return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
             }
@@ -116,7 +120,7 @@ impl<R: Read> BitRead for BitReader<R> {
     }
 
     fn has_data_left(&mut self) -> std::io::Result<bool> {
-        Ok(!self.buffer().is_empty() || self.fill_buf()? != 0)
+        Ok(self.buffer_len() != 0 || self.fill_buf()? != 0)
     }
 }
 
@@ -131,14 +135,14 @@ impl<R: Read> ReadUntil for BitReader<R> {
         loop {
             match self.buffer().iter().position(|x| *x == byte) {
                 Some(pos) => {
-                    buf.extend_from_slice(&self.buffer()[..pos + 1]);
+                    buf.extend_from_slice(&self.buf[self.begin..self.begin + pos + 1]);
                     n += pos + 1;
                     self.begin += pos + 1;
                     return Ok(n);
                 }
                 None => {
                     buf.extend_from_slice(self.buffer());
-                    n += self.buffer().len();
+                    n += self.buffer_len();
                     self.begin = self.cap;
                     if self.fill_buf()? == 0 {
                         return Ok(n);
