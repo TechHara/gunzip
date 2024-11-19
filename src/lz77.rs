@@ -7,13 +7,6 @@ pub const END_OF_BLOCK: u32 = 256;
 pub const MAX_DISTANCE: u16 = 1 << 15; // 32kB
 pub const MAX_LENGTH: u16 = 258;
 
-#[derive(PartialEq, Eq, Debug)]
-pub enum Code {
-    Literal(u8),                               // < 256
-    EndOfBlock,                                // == 256
-    Dictionary { distance: u16, length: u16 }, // 257..285
-}
-
 pub enum DecodeResult {
     Done(usize),         // all symbols are exhausted and written
     WindowIsFull(usize), // cannot proceed further because the window is full
@@ -61,12 +54,18 @@ pub fn decode<B: BitRead>(
                 }
 
                 let begin = idx - distance;
-                while length > 0 {
-                    let n = distance.min(length);
-                    window.copy_within(begin..begin + n, idx);
-                    idx += n;
-                    length -= n;
-                    distance += n;
+                if distance >= length {
+                    let (src, dst) = window.split_at_mut(idx);
+                    dst[..length].copy_from_slice(&src[begin..begin + length]);
+                    idx += length;
+                } else {
+                    while length > 0 {
+                        let n = distance.min(length);
+                        window.copy_within(begin..begin + n, idx);
+                        idx += n;
+                        length -= n;
+                        distance += n;
+                    }
                 }
             }
         }
