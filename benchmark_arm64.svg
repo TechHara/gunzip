@@ -35,12 +35,12 @@
  <path fill="none" stroke="rgb(179,179,179)" stroke-linejoin="round" d="M 1604,1460 L 1754,1460"/>
  <path fill="none" stroke="rgb(179,179,179)" stroke-linejoin="round" d="M 1604,1460 L 1754,1460"/>
  <path fill="none" stroke="rgb(179,179,179)" stroke-linejoin="round" d="M 1754,7177 L 1754,1460"/>
- <path fill="rgb(0,69,134)" stroke="none" d="M 2323,7177 L 3461,7177 3461,2212 2323,2212 2323,7177 Z"/>
- <path fill="rgb(255,66,14)" stroke="none" d="M 9153,7177 L 10291,7177 10291,5236 9153,5236 9153,7177 Z"/>
- <path fill="rgb(255,66,14)" stroke="none" d="M 3461,7177 L 4600,7177 4600,5092 3461,5092 3461,7177 Z"/>
- <path fill="rgb(255,211,32)" stroke="none" d="M 4600,7177 L 5738,7177 5738,4663 4600,4663 4600,7177 Z"/>
- <path fill="rgb(87,157,28)" stroke="none" d="M 11430,7177 L 12568,7177 12568,5404 11430,5404 11430,7177 Z"/>
- <path fill="rgb(87,157,28)" stroke="none" d="M 5738,7177 L 6877,7177 6877,4946 5738,4946 5738,7177 Z"/>
+ <path fill="rgb(0,69,134)" stroke="none" d="M 2323,7177 L 3461,7177 3461,2178 2323,2178 2323,7177 Z"/>
+ <path fill="rgb(255,66,14)" stroke="none" d="M 9153,7177 L 10291,7177 10291,5241 9153,5241 9153,7177 Z"/>
+ <path fill="rgb(255,66,14)" stroke="none" d="M 3461,7177 L 4600,7177 4600,5069 3461,5069 3461,7177 Z"/>
+ <path fill="rgb(255,211,32)" stroke="none" d="M 4600,7177 L 5738,7177 5738,4644 4600,4644 4600,7177 Z"/>
+ <path fill="rgb(87,157,28)" stroke="none" d="M 11430,7177 L 12568,7177 12568,5567 11430,5567 11430,7177 Z"/>
+ <path fill="rgb(87,157,28)" stroke="none" d="M 5738,7177 L 6877,7177 6877,5118 5738,5118 5738,7177 Z"/>
  <text class="SVGTextShape"><tspan class="TextParagraph" font-family="Liberation Sans, sans-serif" font-size="353px" font-weight="400"><tspan class="TextPosition" x="4507" y="7745"><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre">1</tspan></tspan></tspan></text>
  <text class="SVGTextShape"><tspan class="TextParagraph" font-family="Liberation Sans, sans-serif" font-size="353px" font-weight="400"><tspan class="TextPosition" x="10199" y="7745"><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre">2</tspan></tspan></tspan></text>
  <text class="SVGTextShape"><tspan class="TextParagraph" font-family="Liberation Sans, sans-serif" font-size="353px" font-weight="400"><tspan class="TextPosition" x="1319" y="7298"><tspan fill="rgb(0,0,0)" stroke="none" style="white-space: pre">0</tspan></tspan></tspan></text>
