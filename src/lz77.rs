@@ -46,8 +46,8 @@ pub fn decode<B: BitRead>(
                 let (bits, mut distance) = SYMBOL2BITS_DISTANCE[symbol as usize];
                 distance += reader.read_bits(bits)?;
 
-                let mut distance = distance as usize;
-                let mut length = length as usize;
+                let distance = distance as usize;
+                let length = length as usize;
 
                 if distance > idx {
                     return Err(Error::DistanceTooMuch);
@@ -58,14 +58,15 @@ pub fn decode<B: BitRead>(
                     let (src, dst) = window.split_at_mut(idx);
                     dst[..length].copy_from_slice(&src[begin..begin + length]);
                     idx += length;
+                } else if distance == 1 {
+                    let x = window[begin];
+                    window[idx..idx + length].fill(x);
+                    idx += length;
                 } else {
-                    while length > 0 {
-                        let n = distance.min(length);
-                        window.copy_within(begin..begin + n, idx);
-                        idx += n;
-                        length -= n;
-                        distance += n;
+                    for (dst, src) in (idx..).zip(begin..begin + length) {
+                        window[dst] = window[src];
                     }
+                    idx += length;
                 }
             }
         }
