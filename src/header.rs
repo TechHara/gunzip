@@ -5,6 +5,7 @@ use std::io::Read;
 const ID1: u8 = 0x1f;
 const ID2: u8 = 0x8b;
 const DEFLATE: u8 = 8;
+#[allow(dead_code)]
 const FTEXT: u8 = 1;
 const FHCRC: u8 = 2;
 const FEXTRA: u8 = 4;

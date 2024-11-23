@@ -1,6 +1,7 @@
 use crate::bitread::BitRead;
 use crate::error::{Error, Result};
 use crate::huffman_decoder::HuffmanDecoder;
+use crate::sliding_window::{WINDOW_MASK, WINDOW_SIZE};
 use std::cmp::Ordering::*;
 
 pub const END_OF_BLOCK: u32 = 256;
@@ -14,7 +15,7 @@ pub enum DecodeResult {
 }
 
 pub fn decode<B: BitRead>(
-    window: &mut [u8],
+    window: &mut [u8; WINDOW_SIZE],
     boundary: usize,
     reader: &mut B,
     ll_decoder: &HuffmanDecoder,
@@ -31,19 +32,19 @@ pub fn decode<B: BitRead>(
         reader.consume(len);
         match symbol.cmp(&END_OF_BLOCK) {
             Less => {
-                window[idx] = symbol as u8;
+                window[idx & WINDOW_MASK] = symbol as u8;
                 idx += 1;
             }
             Equal => {
                 return Ok(DecodeResult::Done(idx - boundary));
             }
             Greater => {
-                let (bits, mut length) = SYMBOL2BITS_LENGTH[(symbol & 0xFF) as usize];
+                let (bits, mut length) = SYMBOL2BITS_LENGTH[(symbol & 0x1F) as usize];
                 length += reader.read_bits(bits)?;
                 let bitcode = reader.peek_bits()?;
                 let (symbol, len) = dist_decoder.decode(bitcode)?;
                 reader.consume(len);
-                let (bits, mut distance) = SYMBOL2BITS_DISTANCE[symbol as usize];
+                let (bits, mut distance) = SYMBOL2BITS_DISTANCE[(symbol & 0x1F) as usize];
                 distance += reader.read_bits(bits)?;
 
                 let distance = distance as usize;
@@ -64,7 +65,7 @@ pub fn decode<B: BitRead>(
                     idx += length;
                 } else {
                     for (dst, src) in (idx..).zip(begin..begin + length) {
-                        window[dst] = window[src];
+                        window[dst & WINDOW_MASK] = window[src & WINDOW_MASK];
                     }
                     idx += length;
                 }
@@ -77,7 +78,7 @@ pub fn decode<B: BitRead>(
     }
 }
 
-pub const SYMBOL2BITS_LENGTH: [(u32, u32); 30] = [
+pub const SYMBOL2BITS_LENGTH: [(u32, u32); 32] = [
     (0, 0),
     (0, 3),
     (0, 4),
@@ -108,9 +109,11 @@ pub const SYMBOL2BITS_LENGTH: [(u32, u32); 30] = [
     (5, 195),
     (5, 227),
     (0, 258),
+    (0, 0), // padding
+    (0, 0),
 ];
 
-pub const SYMBOL2BITS_DISTANCE: [(u32, u32); 30] = [
+pub const SYMBOL2BITS_DISTANCE: [(u32, u32); 32] = [
     (0, 1),
     (0, 2),
     (0, 3),
@@ -141,4 +144,6 @@ pub const SYMBOL2BITS_DISTANCE: [(u32, u32); 30] = [
     (12, 12289),
     (13, 16385),
     (13, 24577),
+    (0, 0), // padding
+    (0, 0),
 ];

@@ -1,5 +1,6 @@
 use crc32fast::Hasher;
 
+#[allow(clippy::len_without_is_empty)]
 pub trait Checksum {
     // update the checksum
     fn update(&mut self, xs: &[u8]);
@@ -19,6 +20,7 @@ pub struct Crc32Checksum {
     n: usize,
 }
 
+#[allow(clippy::new_without_default)]
 impl Crc32Checksum {
     pub fn new() -> Self {
         Self {
