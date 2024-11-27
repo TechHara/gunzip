@@ -10,12 +10,38 @@ fn reverse_bits(mut bits: u32) -> u32 {
 use crate::codebook::CodeBook;
 use crate::error::{Error, Result};
 
-const NUM_BITS_FIRST_LOOKUP: u32 = 9;
+const NUM_BITS_FIRST_LOOKUP: u32 = 10;
+
+/// | extra_bits: 4-bits | value: 15-bits | codelength: 4-bits | symbol: 9-bits |
+#[derive(Clone, Copy, Default)]
+pub struct PackedData(u32);
+
+impl PackedData {
+    pub fn new(symbol: u32, codelength: u32, value: u32, extra_bits: u32) -> Self {
+        Self((extra_bits << 28) | (value << 13) | (codelength << 9) | symbol)
+    }
+
+    pub fn symbol(&self) -> u32 {
+        self.0 & ((1 << 9) - 1)
+    }
+
+    pub fn codelength(&self) -> u32 {
+        (self.0 >> 9) & ((1 << 4) - 1)
+    }
+
+    pub fn value(&self) -> u32 {
+        (self.0 >> 13) & ((1 << 15) - 1)
+    }
+
+    pub fn extra_bits(&self) -> u32 {
+        (self.0 >> 28) & ((1 << 4) - 1)
+    }
+}
 
 pub struct HuffmanDecoder {
     /// lookup[bitcode] where bitcode is the bit-order reversed huffman code, right-aligned
     /// this is so that we can feed in multiple bits at once, from right to left
-    lookup: Vec<(u32, u32)>, // symbol, length
+    lookup: Vec<PackedData>,
     primary_mask: u32,   // mask NUM_BITS_FIRST_LOOKUP bits
     secondary_mask: u32, // mask the rest of the bits
 }
@@ -29,23 +55,34 @@ impl HuffmanDecoder {
         }
     }
 
-    pub fn new(codebook: CodeBook) -> Self {
+    pub fn new(codebook: CodeBook, extra: &[(u32, u32); 32]) -> Self {
         let mut lookup = Vec::new();
         let max_nbits = codebook.max_length();
-        let (nbits, secondary_mask) = if max_nbits > NUM_BITS_FIRST_LOOKUP {
-            (
-                NUM_BITS_FIRST_LOOKUP,
-                (1 << (max_nbits - NUM_BITS_FIRST_LOOKUP)) - 1,
-            )
+        let nbits: u32;
+        let secondary_mask: u32;
+        if max_nbits > NUM_BITS_FIRST_LOOKUP {
+            nbits = NUM_BITS_FIRST_LOOKUP;
+            secondary_mask = ((1 << (max_nbits - NUM_BITS_FIRST_LOOKUP)) - 1) as u32;
+            let n_two_steps = codebook
+                .tree
+                .iter()
+                .filter(|(_, l)| *l > NUM_BITS_FIRST_LOOKUP)
+                .count();
+            lookup.resize(
+                (1 << nbits) + (n_two_steps << (max_nbits - nbits)),
+                PackedData::default(),
+            );
         } else {
             // all codes can be decoded in a single step
             // secondary mask not needed
-            (max_nbits, 0)
+            nbits = max_nbits;
+            secondary_mask = 0;
+            lookup.resize(1 << nbits, PackedData::default());
         };
-        let primary_mask = (1 << nbits) - 1;
+        let primary_mask = (1 << nbits) as u32 - 1;
+        let mut last_offset: usize = 1 << nbits;
 
-        lookup.resize(1 << nbits, (0, 0));
-        for (symbol, (mut bitcode, len)) in codebook.into_iter().enumerate() {
+        for (symbol, (mut bitcode, len)) in codebook.tree.into_iter().enumerate() {
             if len == 0 {
                 continue;
             }
@@ -53,12 +90,16 @@ impl HuffmanDecoder {
             // reverse bit-order of huffman
             bitcode = reverse_bits(bitcode);
             bitcode >>= 16 - len; // right-align
+
+            let (extra, value) = extra[symbol & 0x1F];
             if len <= nbits {
                 // single-step lookup
                 // populate table
                 let delta = nbits - len;
+
+                let x = PackedData::new(symbol as u32, len, value, extra);
                 for idx in 0..(1 << delta) {
-                    lookup[(bitcode | (idx << len)) as usize] = (symbol as u32, len);
+                    lookup[(bitcode | (idx << len)) as usize] = x;
                 }
             } else {
                 // two-step lookup
@@ -67,25 +108,26 @@ impl HuffmanDecoder {
                 let offset = if lookup[base].0 == 0 {
                     // first time the base has been seen
                     // will append the second-step lookup table
-                    let offset = lookup.len() as u32;
+                    let offset = last_offset;
+                    last_offset += 1 << (max_nbits - nbits);
                     // set up the index
-                    lookup[base] = (offset, len);
-                    // make room for the second-step lookup table
-                    let new_len = lookup.len() + (1 << (max_nbits - nbits));
-                    lookup.resize(new_len, (0, 0));
+                    lookup[base] = PackedData::new(0, len, offset as u32, 0);
                     offset
                 } else {
                     // second-step lookup already created
-                    lookup[base].0
+                    lookup[base].value() as usize
                 };
                 let secondary_len = len - nbits;
-                let base = offset + ((bitcode >> nbits) & secondary_mask);
+                let base = offset + ((bitcode >> nbits) & secondary_mask) as usize;
                 // populate second-step lookup table
+                let x = PackedData::new(symbol as u32, len, value, extra);
                 for idx in 0..(1 << (max_nbits - len)) {
-                    lookup[(base + (idx << secondary_len)) as usize] = (symbol as u32, len);
+                    lookup[base + (idx << secondary_len)] = x;
                 }
             }
         }
+
+        lookup.truncate(last_offset);
 
         Self {
             lookup,
@@ -97,16 +139,16 @@ impl HuffmanDecoder {
     /// Look up the code given at least max_length bits
     /// Returns symbol and its length upon match
     #[inline(always)]
-    pub fn decode(&self, bits: u32) -> Result<(u32, u32)> {
-        let (symbol, len) = self.lookup[(bits & self.primary_mask) as usize];
-        if len == 0 {
-            Err(Error::HuffmanDecoderCodeNotFound)
-        } else if len <= NUM_BITS_FIRST_LOOKUP {
-            Ok((symbol, len))
-        } else {
-            let base = symbol as usize;
-            let idx = (bits >> NUM_BITS_FIRST_LOOKUP) & self.secondary_mask;
-            Ok(self.lookup[base + idx as usize])
+    pub fn decode(&self, bits: u32) -> Result<PackedData> {
+        let result = self.lookup[(bits & self.primary_mask) as usize];
+        match result.codelength() {
+            0 => Err(Error::HuffmanDecoderCodeNotFound),
+            1..=NUM_BITS_FIRST_LOOKUP => Ok(result),
+            _ => {
+                let base = result.value() as usize;
+                let idx = (bits >> NUM_BITS_FIRST_LOOKUP) & self.secondary_mask;
+                Ok(self.lookup[base + idx as usize])
+            }
         }
     }
 }

@@ -4,29 +4,29 @@ pub const MAX_CODELENGTH: u32 = 15;
 pub const MAX_LL_SYMBOL: u32 = 288;
 
 pub struct CodeBook {
-    tree: Vec<(u32, u32)>, // bitcode, length
+    pub tree: Vec<(u32, u32)>, // bitcode, length
     max_length: u32,
 }
 
 impl CodeBook {
-    pub fn new(lengths: &[u32]) -> Result<Self> {
+    pub fn new(lengths: impl IntoIterator<Item = u32>, len: usize) -> Result<Self> {
         let err = Err(Error::InvalidCodeLengths);
 
         // follow RFC1951 https://www.rfc-editor.org/rfc/rfc1951#ref-1
-        if lengths.is_empty() || lengths.len() > MAX_LL_SYMBOL as usize + 1 {
+        if len == 0 || len > MAX_LL_SYMBOL as usize + 1 {
             return err;
         }
 
-        let mut tree = Vec::with_capacity(lengths.len());
+        let mut tree = Vec::with_capacity(len);
         let mut max_len = 0; // max(lengths)
 
         // step 1
         // # of codes having bitcode length count
         let mut bl_count = [0; MAX_CODELENGTH as usize + 1];
         for l in lengths {
-            bl_count[*l as usize] += 1;
-            tree.push((0, *l));
-            max_len = max_len.max(*l);
+            bl_count[l as usize] += 1;
+            tree.push((0, l));
+            max_len = max_len.max(l);
         }
 
         if max_len > MAX_CODELENGTH {
@@ -76,21 +76,11 @@ impl CodeBook {
             7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8,
         ];
 
-        Self::new(&lengths).unwrap()
+        Self::new(lengths.iter().copied(), lengths.len()).unwrap()
     }
 
     pub fn default_dist() -> Self {
         let lengths = [5; 30];
-        Self::new(&lengths).unwrap()
-    }
-}
-
-impl IntoIterator for CodeBook {
-    type Item = (u32, u32);
-
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.tree.into_iter()
+        Self::new(lengths.iter().copied(), lengths.len()).unwrap()
     }
 }

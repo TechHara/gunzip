@@ -5,8 +5,8 @@ use crate::sliding_window::{WINDOW_MASK, WINDOW_SIZE};
 use std::cmp::Ordering::*;
 
 pub const END_OF_BLOCK: u32 = 256;
-pub const MAX_DISTANCE: u16 = 1 << 15; // 32kB
-pub const MAX_LENGTH: u16 = 258;
+pub const MAX_DISTANCE: u32 = 1 << 15; // 32kB
+pub const MAX_LENGTH: u32 = 258;
 
 pub enum DecodeResult {
     Done(usize),         // all symbols are exhausted and written
@@ -28,24 +28,31 @@ pub fn decode<B: BitRead>(
 
     loop {
         let bitcode = reader.peek_bits()?;
-        let (symbol, len) = ll_decoder.decode(bitcode)?;
-        reader.consume(len);
+        let packed_data = ll_decoder.decode(bitcode)?;
+        let symbol = packed_data.symbol();
+        let len = packed_data.codelength();
+
         match symbol.cmp(&END_OF_BLOCK) {
             Less => {
+                reader.consume(len);
                 window[idx & WINDOW_MASK] = symbol as u8;
                 idx += 1;
             }
             Equal => {
+                reader.consume(len);
                 return Ok(DecodeResult::Done(idx - boundary));
             }
             Greater => {
-                let (bits, mut length) = SYMBOL2BITS_LENGTH[(symbol & 0x1F) as usize];
-                length += reader.read_bits(bits)?;
+                let (bits, mut length) = (packed_data.extra_bits(), packed_data.value());
+                length += (bitcode >> len) & ((1 << bits) - 1);
+                reader.consume(len + bits);
+
                 let bitcode = reader.peek_bits()?;
-                let (symbol, len) = dist_decoder.decode(bitcode)?;
-                reader.consume(len);
-                let (bits, mut distance) = SYMBOL2BITS_DISTANCE[(symbol & 0x1F) as usize];
-                distance += reader.read_bits(bits)?;
+                let packed_data = dist_decoder.decode(bitcode)?;
+                let len = packed_data.codelength();
+                let (bits, mut distance) = (packed_data.extra_bits(), packed_data.value());
+                distance += (bitcode >> len) & ((1 << bits) - 1);
+                reader.consume(len + bits);
 
                 let distance = distance as usize;
                 let length = length as usize;

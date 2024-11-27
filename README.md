@@ -1,6 +1,6 @@
 # Gunzip
 
-This repo contains pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 20 to understand the code in incremental steps. The current `main` branch is identical to branch 20.
+This repo contains pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 21 to understand the code in incremental steps. The current `main` branch is identical to branch 21
 
 The following roughly summarizes each stage
 - branch 1: `main()` function and skeletal structure
@@ -23,6 +23,7 @@ The following roughly summarizes each stage
 - branch 18: performance optimization and remove dead code
 - branch 19: performance optimization
 - branch 20: reduce buffer size and hence cache misses
+- branch 21: improve implementation for decode and HuffmanDecoder
 
 # Features
 - written from scratch in pure Rust without unsafe code

@@ -4,7 +4,7 @@ use crate::error::{Error, Result};
 use crate::footer::Footer;
 use crate::header::Header;
 use crate::huffman_decoder::HuffmanDecoder;
-use crate::lz77::{decode, DecodeResult, MAX_DISTANCE};
+use crate::lz77::{decode, DecodeResult, MAX_DISTANCE, SYMBOL2BITS_DISTANCE, SYMBOL2BITS_LENGTH};
 use crate::sliding_window::SlidingWindow;
 use std::io::Read;
 
@@ -68,8 +68,10 @@ impl<R: Read> Producer<R> {
                         self.inflate_block0()?
                     }
                     0b010 => {
-                        self.ll_decoder = HuffmanDecoder::new(CodeBook::default_ll());
-                        self.dist_decoder = HuffmanDecoder::new(CodeBook::default_dist());
+                        self.ll_decoder =
+                            HuffmanDecoder::new(CodeBook::default_ll(), &SYMBOL2BITS_LENGTH);
+                        self.dist_decoder =
+                            HuffmanDecoder::new(CodeBook::default_dist(), &SYMBOL2BITS_DISTANCE);
                         self.state = State::Inflate(is_final);
                         self.inflate(is_final)?
                     }
@@ -149,16 +151,18 @@ impl<R: Read> Producer<R> {
         {
             cl_lengths[idx] = self.reader.read_bits(3)?;
         }
-        let cl_codes = CodeBook::new(&cl_lengths)?;
-        let cl_decoder = HuffmanDecoder::new(cl_codes);
+        let cl_codes = CodeBook::new(cl_lengths.iter().copied(), cl_lengths.len())?;
+        let cl_decoder = HuffmanDecoder::new(cl_codes, &SYMBOL2BITS_LENGTH);
 
         // The code lengths contain LL codes and Distance codes as a single table
         let num_codes = hlit + hdist;
         let mut lengths = Vec::with_capacity(num_codes);
         while lengths.len() < num_codes {
-            let (cl_code, len) = cl_decoder
+            let packed_data = cl_decoder
                 .decode(self.reader.peek_bits()?)
                 .or(Err(Error::ReadDynamicCodebook))?;
+            let len = packed_data.codelength();
+            let cl_code = packed_data.symbol();
             self.reader.consume(len);
             match cl_code {
                 0..=15 => {
@@ -187,11 +191,11 @@ impl<R: Read> Producer<R> {
             return Err(Error::ReadDynamicCodebook);
         }
 
-        let ll_codes = CodeBook::new(&lengths[..hlit])?;
-        let dist_codes = CodeBook::new(&lengths[hlit..])?;
+        let ll_codes = CodeBook::new(lengths[..hlit].iter().copied(), hlit)?;
+        let dist_codes = CodeBook::new(lengths[hlit..].iter().copied(), lengths.len() - hlit)?;
         Ok((
-            HuffmanDecoder::new(ll_codes),
-            HuffmanDecoder::new(dist_codes),
+            HuffmanDecoder::new(ll_codes, &SYMBOL2BITS_LENGTH),
+            HuffmanDecoder::new(dist_codes, &SYMBOL2BITS_DISTANCE),
         ))
     }
 }
