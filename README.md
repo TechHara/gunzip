@@ -65,7 +65,7 @@ The following result is obtained by running this [benchmark script](https://gist
 ```sh
 # create a ramdisk
 mkdir /ramdisk
-mount -o size=2G -t tmpfs none /ramdisk
+mount -o size=4G -t tmpfs none /ramdisk
 cd /ramdisk
 
 # run benchmark script
