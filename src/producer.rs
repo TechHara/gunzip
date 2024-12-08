@@ -86,7 +86,7 @@ impl<R: Read> Producer<R> {
             State::Inflate(is_final) => self.inflate(is_final)?,
             State::Footer => {
                 self.state = State::Header;
-                self.window = SlidingWindow::new(); // reset history
+                self.window.reset();
                 Produce::Footer(Footer::read(&mut self.reader)?)
             }
         };
@@ -104,7 +104,9 @@ impl<R: Read> Producer<R> {
             let mut buf = vec![0; len];
             self.reader.read_exact(&mut buf)?;
             let n = len.min(MAX_DISTANCE as usize); // maximum history required
-            self.window.write_buffer()[..n].copy_from_slice(&buf[len - n..len]);
+            self.window
+                .write_buffer(n)
+                .copy_from_slice(&buf[len - n..len]);
             self.window.slide(n);
             Ok(Produce::Data(buf))
         }
@@ -132,7 +134,7 @@ impl<R: Read> Producer<R> {
                 return Err(e);
             }
         };
-        let buf = Vec::from(&self.window.write_buffer()[..n]);
+        let buf = Vec::from(self.window.write_buffer(n));
         self.window.slide(n);
 
         Ok(Produce::Data(buf))
@@ -203,6 +205,7 @@ impl<R: Read> Producer<R> {
 impl<R: Read> Iterator for Producer<R> {
     type Item = Produce;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.next_helper().unwrap_or_else(|e| Some(Produce::Err(e)))
     }

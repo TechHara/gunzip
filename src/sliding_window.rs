@@ -18,13 +18,15 @@ impl SlidingWindow {
     }
 
     /// entire window
+    #[inline(always)]
     pub fn buffer(&mut self) -> &mut [u8; WINDOW_SIZE] {
         self.data.as_mut()
     }
 
     /// Write buffer size is guaranteed to be at least 32kB after `slide()`
-    pub fn write_buffer(&mut self) -> &mut [u8] {
-        &mut self.data[self.cur..]
+    #[inline(always)]
+    pub fn write_buffer(&mut self, n: usize) -> &mut [u8] {
+        &mut self.data[self.cur..self.cur + n]
     }
 
     /// Slide the data so that at most 32kB of the most recent history is kept
@@ -40,7 +42,13 @@ impl SlidingWindow {
     }
 
     /// index to write buffer
+    #[inline(always)]
     pub fn boundary(&self) -> usize {
         self.cur
+    }
+
+    #[inline(always)]
+    pub fn reset(&mut self) {
+        self.cur = 0;
     }
 }
