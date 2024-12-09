@@ -27,6 +27,7 @@ pub struct Producer<R> {
     state: State,
     member_idx: usize,
     window: SlidingWindow,
+    cl_decoder: HuffmanDecoder,
     ll_decoder: HuffmanDecoder,
     dist_decoder: HuffmanDecoder,
 }
@@ -38,6 +39,7 @@ impl<R: Read> Producer<R> {
             state: State::Header,
             member_idx: 0,
             window: SlidingWindow::new(),
+            cl_decoder: HuffmanDecoder::uninitialized(),
             ll_decoder: HuffmanDecoder::uninitialized(),
             dist_decoder: HuffmanDecoder::uninitialized(),
         }
@@ -68,15 +70,15 @@ impl<R: Read> Producer<R> {
                         self.inflate_block0()?
                     }
                     0b010 => {
-                        self.ll_decoder =
-                            HuffmanDecoder::new(CodeBook::default_ll(), &SYMBOL2BITS_LENGTH);
-                        self.dist_decoder =
-                            HuffmanDecoder::new(CodeBook::default_dist(), &SYMBOL2BITS_DISTANCE);
+                        self.ll_decoder
+                            .set(CodeBook::default_ll(), &SYMBOL2BITS_LENGTH);
+                        self.dist_decoder
+                            .set(CodeBook::default_dist(), &SYMBOL2BITS_DISTANCE);
                         self.state = State::Inflate(is_final);
                         self.inflate(is_final)?
                     }
                     0b100 => {
-                        (self.ll_decoder, self.dist_decoder) = self.read_dynamic_codebooks()?;
+                        self.read_dynamic_codebooks()?;
                         self.state = State::Inflate(is_final);
                         self.inflate(is_final)?
                     }
@@ -140,7 +142,7 @@ impl<R: Read> Producer<R> {
         Ok(Produce::Data(buf))
     }
 
-    fn read_dynamic_codebooks(&mut self) -> Result<(HuffmanDecoder, HuffmanDecoder)> {
+    fn read_dynamic_codebooks(&mut self) -> Result<()> {
         let hlit = self.reader.read_bits(5)? as usize + 257;
         let hdist = self.reader.read_bits(5)? as usize + 1;
         let hclen = self.reader.read_bits(4)? as usize + 4;
@@ -154,13 +156,14 @@ impl<R: Read> Producer<R> {
             cl_lengths[idx] = self.reader.read_bits(3)?;
         }
         let cl_codes = CodeBook::new(cl_lengths.iter().copied(), cl_lengths.len())?;
-        let cl_decoder = HuffmanDecoder::new(cl_codes, &SYMBOL2BITS_LENGTH);
+        self.cl_decoder.set(cl_codes, &SYMBOL2BITS_LENGTH);
 
         // The code lengths contain LL codes and Distance codes as a single table
         let num_codes = hlit + hdist;
         let mut lengths = Vec::with_capacity(num_codes);
         while lengths.len() < num_codes {
-            let packed_data = cl_decoder
+            let packed_data = self
+                .cl_decoder
                 .decode(self.reader.peek_bits()?)
                 .or(Err(Error::ReadDynamicCodebook))?;
             let len = packed_data.codelength();
@@ -195,10 +198,9 @@ impl<R: Read> Producer<R> {
 
         let ll_codes = CodeBook::new(lengths[..hlit].iter().copied(), hlit)?;
         let dist_codes = CodeBook::new(lengths[hlit..].iter().copied(), lengths.len() - hlit)?;
-        Ok((
-            HuffmanDecoder::new(ll_codes, &SYMBOL2BITS_LENGTH),
-            HuffmanDecoder::new(dist_codes, &SYMBOL2BITS_DISTANCE),
-        ))
+        self.ll_decoder.set(ll_codes, &SYMBOL2BITS_LENGTH);
+        self.dist_decoder.set(dist_codes, &SYMBOL2BITS_DISTANCE);
+        Ok(())
     }
 }
 

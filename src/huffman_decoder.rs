@@ -55,8 +55,8 @@ impl HuffmanDecoder {
         }
     }
 
-    pub fn new(codebook: CodeBook, extra: &[(u32, u32); 32]) -> Self {
-        let mut lookup = Vec::new();
+    pub fn set(&mut self, codebook: CodeBook, extra: &[(u32, u32); 32]) {
+        self.lookup.truncate(0);
         let max_nbits = codebook.max_length();
         let nbits: u32;
         let secondary_mask: u32;
@@ -68,7 +68,7 @@ impl HuffmanDecoder {
                 .iter()
                 .filter(|(_, l)| *l > NUM_BITS_FIRST_LOOKUP)
                 .count();
-            lookup.resize(
+            self.lookup.resize(
                 (1 << nbits) + (n_two_steps << (max_nbits - nbits)),
                 PackedData::default(),
             );
@@ -77,7 +77,7 @@ impl HuffmanDecoder {
             // secondary mask not needed
             nbits = max_nbits;
             secondary_mask = 0;
-            lookup.resize(1 << nbits, PackedData::default());
+            self.lookup.resize(1 << nbits, PackedData::default());
         };
         let primary_mask = (1 << nbits) as u32 - 1;
         let mut last_offset: usize = 1 << nbits;
@@ -99,41 +99,37 @@ impl HuffmanDecoder {
 
                 let x = PackedData::new(symbol as u32, len, value, extra);
                 for idx in 0..(1 << delta) {
-                    lookup[(bitcode | (idx << len)) as usize] = x;
+                    self.lookup[(bitcode | (idx << len)) as usize] = x;
                 }
             } else {
                 // two-step lookup
                 // symbol will point to the base index for the second lookup step
                 let base = (bitcode & primary_mask) as usize;
-                let offset = if lookup[base].0 == 0 {
+                let offset = if self.lookup[base].0 == 0 {
                     // first time the base has been seen
                     // will append the second-step lookup table
                     let offset = last_offset;
                     last_offset += 1 << (max_nbits - nbits);
                     // set up the index
-                    lookup[base] = PackedData::new(0, len, offset as u32, 0);
+                    self.lookup[base] = PackedData::new(0, len, offset as u32, 0);
                     offset
                 } else {
                     // second-step lookup already created
-                    lookup[base].value() as usize
+                    self.lookup[base].value() as usize
                 };
                 let secondary_len = len - nbits;
                 let base = offset + ((bitcode >> nbits) & secondary_mask) as usize;
                 // populate second-step lookup table
                 let x = PackedData::new(symbol as u32, len, value, extra);
                 for idx in 0..(1 << (max_nbits - len)) {
-                    lookup[base + (idx << secondary_len)] = x;
+                    self.lookup[base + (idx << secondary_len)] = x;
                 }
             }
         }
 
-        lookup.truncate(last_offset);
-
-        Self {
-            lookup,
-            primary_mask,
-            secondary_mask,
-        }
+        self.lookup.truncate(last_offset);
+        self.primary_mask = primary_mask;
+        self.secondary_mask = secondary_mask;
     }
 
     /// Look up the code given at least max_length bits
