@@ -40,8 +40,8 @@ The following roughly summarizes each stage
 use gunzip::{SingleThreadDecompressor, MultiThreadDecompressor};
 
 fn main() -> std::io::Result<()> {
-    let reader = std::io::stdin();
-    let mut writer = std::io::stdout();
+    let reader = std::fs::File::open("data.bin.gz")?;
+    let mut writer = std::fs::File::create("data.bin")?;
     let mut decompressor = SingleThreadDecompressor::new(reader);
     // or MultiThreadDecompressor::new(reader);
     std::io::copy(&mut decompressor, &mut writer)?;
