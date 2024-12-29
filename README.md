@@ -72,7 +72,7 @@ mount -o size=4G -t tmpfs none /ramdisk
 cd /ramdisk
 
 # run benchmark script
-curl https://gist.githubusercontent.com/TechHara/500a1f7b8cc08af86856f707c04b0023/raw/ebc3467ac5cfb4f80bac4a0ef0cc042c5b24f27f/gunzip_benchmark.sh | bash
+curl https://gist.githubusercontent.com/TechHara/500a1f7b8cc08af86856f707c04b0023/raw/b668d419373bb138f71cfe467f0f9e573aaaf89f/gunzip_benchmark.sh | bash
 ```
 
 ![](benchmark_x64.svg)
