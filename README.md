@@ -27,6 +27,7 @@ The following roughly summarizes each stage
 - branch 22: remove unnecessary heap allocation
 - branch 23: recycle heap allocation
 - branch 24: optimize write to stdout
+- branch 25: fix bug when codelength + extrabits > 24
 
 # Features
 - written from scratch in pure Rust without unsafe code

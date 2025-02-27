@@ -44,15 +44,15 @@ pub fn decode<B: BitRead>(
             }
             Greater => {
                 let (bits, mut length) = (packed_data.extra_bits(), packed_data.value());
-                length += (bitcode >> len) & ((1 << bits) - 1);
+                length += (bitcode >> len) & ((1 << bits) - 1); // 15 + 5 <= 24
                 reader.consume(len + bits);
 
                 let bitcode = reader.peek_bits()?;
                 let packed_data = dist_decoder.decode(bitcode)?;
                 let len = packed_data.codelength();
+                reader.consume(len); // 15 + 13 > 24
                 let (bits, mut distance) = (packed_data.extra_bits(), packed_data.value());
-                distance += (bitcode >> len) & ((1 << bits) - 1);
-                reader.consume(len + bits);
+                distance += reader.read_bits(bits)?;
 
                 let distance = distance as usize;
                 let length = length as usize;
