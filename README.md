@@ -1,6 +1,7 @@
 # Gunzip
 
-This repo contains pure Rust implementation of `gunzip` (decompression only) from scratch with ~1000 lines of code for educational purposes. You can check out branches 1 through 24 to understand the code in incremental steps. The current `main` branch is identical to the latest.
+This repository features a pure `Rust` implementation of `gunzip` (decompression only), created from scratch with approximately 1000 lines of code for educational purposes. 
+Explore branches 1 through 25 for a step-by-step understanding of the code. The main branch reflects the latest version.
 
 The following roughly summarizes each stage
 - branch 1: `main()` function and skeletal structure
