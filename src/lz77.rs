@@ -7,6 +7,7 @@ use std::cmp::Ordering::*;
 pub const END_OF_BLOCK: u32 = 256;
 pub const MAX_DISTANCE: u32 = 1 << 15; // 32kB
 pub const MAX_LENGTH: u32 = 258;
+const COPY_SIZE: usize = 32;
 
 pub enum DecodeResult {
     Done(usize),         // all symbols are exhausted and written
@@ -63,8 +64,11 @@ pub fn decode<B: BitRead>(
 
                 let begin = idx - distance;
                 if distance >= length {
-                    let (src, dst) = window.split_at_mut(idx);
-                    dst[..length].copy_from_slice(&src[begin..begin + length]);
+                    window.copy_within(begin..begin + COPY_SIZE, idx);
+                    if length > COPY_SIZE {
+                        let (src, dst) = window.split_at_mut(idx + COPY_SIZE);
+                        dst[..length - COPY_SIZE].copy_from_slice(&src[begin + COPY_SIZE..begin + length]);
+                    }
                     idx += length;
                 } else if distance == 1 {
                     let x = window[begin];
